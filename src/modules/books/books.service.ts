@@ -3,14 +3,54 @@ import { PrismaService } from 'src/database/prisma/prisma.service';
 import { CreateBookDto } from './dto/create-book.dto';
 import { UpdateBookDto } from './dto/update-book.dto';
 import { Prisma } from '@prisma/client';
-import { BadRequestException } from '@nestjs/common';
+import { BooksQueryDto } from './dto/books-query.dto';
 
 @Injectable()
 export class BooksService {
   constructor(private prisma: PrismaService) {}
 
-  findAll() {
-    return this.prisma.book.findMany();
+  async findAll(query: BooksQueryDto) {
+    const { page = 1, limit = 10, search } = query;
+
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.BookWhereInput = search
+      ? {
+          OR: [
+            {
+              name: {
+                contains: search,
+                mode: 'insensitive',
+              },
+            },
+            {
+              author: {
+                contains: search,
+                mode: 'insensitive',
+              },
+            },
+          ],
+        }
+      : {};
+
+    const [books, total] = await this.prisma.$transaction([
+      this.prisma.book.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+      this.prisma.book.count({ where }),
+    ]);
+
+    return {
+      data: books,
+      total,
+      page,
+      limit,
+    };
   }
 
   async findOne(id: string) {
@@ -26,21 +66,12 @@ export class BooksService {
   }
 
   async create(dto: CreateBookDto) {
-    try {
-      return await this.prisma.book.create({
-        data: dto,
-      });
-    } catch (e) {
-      if (e instanceof Prisma.PrismaClientKnownRequestError) {
-        if (e.code === 'P2002') {
-          throw new BadRequestException('Book name must be unique');
-        }
-      }
-      throw e;
-    }
+    return this.prisma.book.create({
+      data: dto,
+    });
   }
 
-  update(id: string, dto: UpdateBookDto) {
+  async update(id: string, dto: UpdateBookDto) {
     return this.prisma.book.update({
       where: { id },
       data: dto,

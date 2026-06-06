@@ -2,7 +2,7 @@
 
 ## Description
 
-Backend API with JWT authentication, role-based access control and Prisma ORM.
+A backend API built with NestJS featuring JWT authentication (access & refresh token strategy), role-based access control (RBAC), Prisma ORM with PostgreSQL (Neon), and built-in pagination and search for efficient and scalable data retrieval.
 
 ---
 
@@ -55,11 +55,14 @@ API Endpoints
 Auth
 POST /auth/signup
 POST /auth/login
+POST /refresh
+
 Users (admin only)
 GET /users
 POST /users
 PATCH /users/:id
 DELETE /users/:id
+
 Books
 GET /books
 GET /books/:id
@@ -69,7 +72,7 @@ DELETE /books/:id (admin)
 
 ---
 
-# 🧠 6. ENV VARIABLES (IMPORTANT)
+# 🧠 4. ENV VARIABLES (IMPORTANT)
 
 ```env
 # ======================
@@ -94,3 +97,5 @@ PORT=3000
 - All errors are properly handled with clear and structured JSON error responses.
 - The project uses Prisma ORM with a hosted PostgreSQL database (Neon).
 - The project follows a clean **feature-based structure** using NestJS modules.
+- The authentication system implements a token-based strategy (JWT) using both access and refresh tokens for secure session management.
+- Pagination and search functionality are implemented for both Users and Books endpoints, allowing efficient data querying and scalable API responses.

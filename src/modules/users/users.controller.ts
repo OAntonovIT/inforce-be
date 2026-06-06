@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
@@ -15,6 +16,7 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from '@prisma/client';
+import { BooksQueryDto } from '../books/dto/books-query.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.admin)
@@ -27,8 +29,8 @@ export class UsersController {
   }
 
   @Get()
-  findAll() {
-    return this.usersService.findAll();
+  findAll(@Query() query: BooksQueryDto) {
+    return this.usersService.findAll(query);
   }
 
   @Get(':id')

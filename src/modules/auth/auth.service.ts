@@ -1,16 +1,27 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import { UsersService } from 'src/modules/users/users.service';
 import { Role } from '@prisma/client';
+import { SafeUser } from '../users/dto/safe-user.dto';
+
+interface JwtPayload {
+  sub: string;
+  email: string;
+  role: Role;
+}
 
 @Injectable()
 export class AuthService {
   constructor(
     private users: UsersService,
-    private jwt: JwtService,
+    private jwtService: JwtService,
   ) {}
 
   async signup(dto: SignupDto) {
@@ -29,7 +40,12 @@ export class AuthService {
       role: Role.user,
     });
 
-    return this.generateToken(user.id, user.email, user.role);
+    const tokens = this.generateTokens(user);
+
+    return {
+      user: this.mapUser(user),
+      ...tokens,
+    };
   }
 
   async login(dto: LoginDto) {
@@ -45,16 +61,67 @@ export class AuthService {
       throw new BadRequestException('Invalid credentials');
     }
 
-    return this.generateToken(user.id, user.email, user.role);
+    const tokens = this.generateTokens(user);
+
+    return {
+      user: this.mapUser(user),
+      ...tokens,
+    };
   }
 
-  private generateToken(userId: string, email: string, role: Role) {
-    return {
-      access_token: this.jwt.sign({
-        sub: userId,
-        email,
-        role,
-      }),
+  private generateTokens(user: { id: string; email: string; role: Role }) {
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
     };
+
+    const accessToken = this.jwtService.sign(payload, {
+      secret: process.env.JWT_ACCESS_SECRET,
+      expiresIn: '15m',
+    });
+
+    const refreshToken = this.jwtService.sign(payload, {
+      secret: process.env.JWT_REFRESH_SECRET,
+      expiresIn: '4h',
+    });
+
+    return { accessToken, refreshToken };
+  }
+
+  private mapUser(user: SafeUser) {
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    };
+  }
+
+  refresh(refreshToken: string) {
+    try {
+      const payload = this.jwtService.verify<JwtPayload>(refreshToken, {
+        secret: process.env.JWT_REFRESH_SECRET,
+      });
+
+      const newAccessToken = this.jwtService.sign(
+        {
+          sub: payload.sub,
+          email: payload.email,
+          role: payload.role,
+        },
+        {
+          secret: process.env.JWT_ACCESS_SECRET,
+          expiresIn: '15m',
+        },
+      );
+
+      return {
+        accessToken: newAccessToken,
+      };
+    } catch (e) {
+      console.log(e);
+      throw new UnauthorizedException('Invalid refresh token');
+    }
   }
 }

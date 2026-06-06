@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { BooksService } from './books.service';
@@ -16,6 +17,7 @@ import { Role } from '@prisma/client';
 import { CreateBookDto } from './dto/create-book.dto';
 import { UpdateBookDto } from './dto/update-book.dto';
 import { Public } from 'src/common/decorators/public.decorator';
+import { BooksQueryDto } from './dto/books-query.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('books')
@@ -23,8 +25,8 @@ export class BooksController {
   constructor(private readonly booksService: BooksService) {}
   @Public()
   @Get()
-  findAll() {
-    return this.booksService.findAll();
+  findAll(@Query() query: BooksQueryDto) {
+    return this.booksService.findAll(query);
   }
 
   @Public()

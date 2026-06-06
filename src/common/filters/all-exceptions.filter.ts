@@ -22,29 +22,29 @@ export class AllExceptionsFilter implements ExceptionFilter {
       status = exception.getStatus();
 
       const res = exception.getResponse();
-
       if (typeof res === 'string') {
         message = res;
       } else if (typeof res === 'object' && res !== null && 'message' in res) {
         const r = res as { message?: string | string[] };
-
         message = r.message ?? message;
       }
     }
 
     if (exception instanceof Prisma.PrismaClientKnownRequestError) {
-      if (exception.code === 'P2002') {
-        status = HttpStatus.BAD_REQUEST;
-        message = 'Unique constraint violation';
-      }
+      switch (exception.code) {
+        case 'P2002':
+          status = HttpStatus.BAD_REQUEST;
+          message = 'Unique constraint violation';
+          break;
 
-      if (exception.code === 'P2025') {
-        status = HttpStatus.NOT_FOUND;
-        message = 'Record not found';
+        case 'P2025':
+          status = HttpStatus.NOT_FOUND;
+          message = 'Record not found';
+          break;
       }
     }
 
-    response.status(status).json({
+    return response.status(status).json({
       success: false,
       statusCode: status,
       path: request.url,
