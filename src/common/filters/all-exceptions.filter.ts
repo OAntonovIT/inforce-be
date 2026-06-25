@@ -4,12 +4,15 @@ import {
   ArgumentsHost,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
+  private readonly logger = new Logger(AllExceptionsFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
@@ -28,20 +31,24 @@ export class AllExceptionsFilter implements ExceptionFilter {
         const r = res as { message?: string | string[] };
         message = r.message ?? message;
       }
-    }
-
-    if (exception instanceof Prisma.PrismaClientKnownRequestError) {
+    } else if (exception instanceof Prisma.PrismaClientKnownRequestError) {
       switch (exception.code) {
         case 'P2002':
-          status = HttpStatus.BAD_REQUEST;
-          message = 'Unique constraint violation';
+          status = HttpStatus.CONFLICT;
+          message = 'A record with this value already exists';
           break;
-
         case 'P2025':
           status = HttpStatus.NOT_FOUND;
           message = 'Record not found';
           break;
+        default:
+          this.logger.error(
+            `Prisma error ${exception.code}`,
+            exception.message,
+          );
       }
+    } else {
+      this.logger.error('Unexpected error', (exception as Error)?.stack);
     }
 
     return response.status(status).json({

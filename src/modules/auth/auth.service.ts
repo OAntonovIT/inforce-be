@@ -2,8 +2,10 @@ import {
   Injectable,
   BadRequestException,
   UnauthorizedException,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
@@ -19,9 +21,12 @@ interface JwtPayload {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private users: UsersService,
     private jwtService: JwtService,
+    private config: ConfigService,
   ) {}
 
   async signup(dto: SignupDto) {
@@ -42,10 +47,7 @@ export class AuthService {
 
     const tokens = this.generateTokens(user);
 
-    return {
-      user: this.mapUser(user),
-      ...tokens,
-    };
+    return { user: this.mapUser(user), ...tokens };
   }
 
   async login(dto: LoginDto) {
@@ -63,10 +65,7 @@ export class AuthService {
 
     const tokens = this.generateTokens(user);
 
-    return {
-      user: this.mapUser(user),
-      ...tokens,
-    };
+    return { user: this.mapUser(user), ...tokens };
   }
 
   private generateTokens(user: { id: string; email: string; role: Role }) {
@@ -77,12 +76,12 @@ export class AuthService {
     };
 
     const accessToken = this.jwtService.sign(payload, {
-      secret: process.env.JWT_ACCESS_SECRET,
+      secret: this.config.getOrThrow<string>('JWT_ACCESS_SECRET'),
       expiresIn: '15m',
     });
 
     const refreshToken = this.jwtService.sign(payload, {
-      secret: process.env.JWT_REFRESH_SECRET,
+      secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
       expiresIn: '4h',
     });
 
@@ -101,26 +100,22 @@ export class AuthService {
   refresh(refreshToken: string) {
     try {
       const payload = this.jwtService.verify<JwtPayload>(refreshToken, {
-        secret: process.env.JWT_REFRESH_SECRET,
+        secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
       });
 
       const newAccessToken = this.jwtService.sign(
+        { sub: payload.sub, email: payload.email, role: payload.role },
         {
-          sub: payload.sub,
-          email: payload.email,
-          role: payload.role,
-        },
-        {
-          secret: process.env.JWT_ACCESS_SECRET,
+          secret: this.config.getOrThrow<string>('JWT_ACCESS_SECRET'),
           expiresIn: '15m',
         },
       );
 
-      return {
-        accessToken: newAccessToken,
-      };
+      return { accessToken: newAccessToken };
     } catch (e) {
-      console.log(e);
+      this.logger.warn(
+        `Refresh token validation failed: ${(e as Error).message}`,
+      );
       throw new UnauthorizedException('Invalid refresh token');
     }
   }

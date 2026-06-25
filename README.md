@@ -1,101 +1,211 @@
 # NestJS Books API
 
-## Description
-
-A backend API built with NestJS featuring JWT authentication (access & refresh token strategy), role-based access control (RBAC), Prisma ORM with PostgreSQL (Neon), and built-in pagination and search for efficient and scalable data retrieval.
+A production-ready REST API built with NestJS, featuring JWT authentication with refresh tokens, role-based access control (RBAC), rate limiting, Swagger documentation, and Prisma ORM with PostgreSQL.
 
 ---
 
 ## Tech Stack
 
-- NestJS
-- Prisma
-- PostgreSQL (Neon)
-- JWT Authentication
-- Class Validator
+| Technology | Version | Purpose |
+|---|---|---|
+| NestJS | v11 | Framework |
+| Prisma | v6 | ORM |
+| PostgreSQL (Neon) | — | Database |
+| JWT (access + refresh) | — | Authentication |
+| Passport.js | — | Auth strategies |
+| Helmet | — | HTTP security headers |
+| @nestjs/throttler | — | Rate limiting |
+| @nestjs/swagger | — | API documentation |
+| class-validator | — | Input validation |
+| bcrypt | — | Password hashing |
 
 ---
 
-## Roles
+## Roles & Permissions
 
-### User
-
-- Get all books
-- Get book by id
-
-### Admin
-
-- Full CRUD on books
-- Full CRUD on users
+| Endpoint | User | Admin |
+|---|---|---|
+| `GET /books` | ✅ | ✅ |
+| `GET /books/:id` | ✅ | ✅ |
+| `POST /books` | ❌ | ✅ |
+| `PATCH /books/:id` | ❌ | ✅ |
+| `DELETE /books/:id` | ❌ | ✅ |
+| `GET /users` | ❌ | ✅ |
+| `POST /users` | ❌ | ✅ |
+| `PATCH /users/:id` | ❌ | ✅ |
+| `DELETE /users/:id` | ❌ | ✅ |
 
 ---
 
 ## Setup
 
-### 1. Install dependencies
+### 1. Clone and install dependencies
 
+```bash
 npm install
+```
 
-### 2. Setup environment variables
+### 2. Configure environment variables
 
-Create `.env` file:
+```bash
+cp .env.example .env
+```
 
----
+Edit `.env` and fill in the required values (see [Environment Variables](#environment-variables)).
 
-### 3. Run Prisma
+### 3. Generate Prisma client and apply migrations
 
 ```bash
 npx prisma generate
-npx prisma db push
+npx prisma migrate deploy
 ```
 
+### 4. Start the server
+
+```bash
+# Development
 npm run start:dev
 
-API Endpoints
-Auth
-POST /auth/signup
-POST /auth/login
-POST /refresh
-
-Users (admin only)
-GET /users
-POST /users
-PATCH /users/:id
-DELETE /users/:id
-
-Books
-GET /books
-GET /books/:id
-POST /books (admin)
-PATCH /books/:id (admin)
-DELETE /books/:id (admin)
+# Production
+npm run build
+npm run start:prod
+```
 
 ---
 
-# 🧠 4. ENV VARIABLES (IMPORTANT)
+## Environment Variables
 
-```env
-# ======================
-# Database Configuration
-# ======================
-DATABASE_URL="postgresql://neondb_owner:npg_P7JahnBVo9gw@ep-proud-field-abx9fsw3.eu-west-2.aws.neon.tech/neondb?sslmode=require"
+| Variable | Required | Description |
+|---|---|---|
+| `DATABASE_URL` | ✅ | PostgreSQL connection string |
+| `JWT_ACCESS_SECRET` | ✅ | Secret for signing access tokens (min 32 chars, random) |
+| `JWT_REFRESH_SECRET` | ✅ | Secret for signing refresh tokens (min 32 chars, random) |
+| `PORT` | — | Server port (default: `3000`) |
+| `CORS_ORIGINS` | — | Comma-separated allowed origins (default: `http://localhost:5173,http://localhost:3000`) |
 
-# ======================
-# JWT Authentication
-# ======================
-JWT_SECRET=superSecretKey123!ChangeThisInProductionToALongRandomString
-
-# ======================
-# Application
-# ======================
-PORT=3000
+Generate secure JWT secrets:
+```bash
+node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 ```
 
-## Important Notes
+---
 
-- Role-based access control (RBAC) is fully enforced on the backend (not only on the frontend).
-- All errors are properly handled with clear and structured JSON error responses.
-- The project uses Prisma ORM with a hosted PostgreSQL database (Neon).
-- The project follows a clean **feature-based structure** using NestJS modules.
-- The authentication system implements a token-based strategy (JWT) using both access and refresh tokens for secure session management.
-- Pagination and search functionality are implemented for both Users and Books endpoints, allowing efficient data querying and scalable API responses.
+## API Documentation
+
+Interactive Swagger UI is available at:
+
+```
+http://localhost:3000/api/docs
+```
+
+---
+
+## API Endpoints
+
+### Auth
+
+| Method | Path | Access | Description |
+|---|---|---|---|
+| `POST` | `/auth/signup` | Public | Register new user |
+| `POST` | `/auth/login` | Public | Login, receive tokens |
+| `POST` | `/auth/refresh` | Public | Get new access token |
+
+**Rate limits:** `/auth/signup` and `/auth/login` — 5 requests/min; `/auth/refresh` — 10 requests/min.
+
+**Token lifetimes:** Access token — 15 minutes; Refresh token — 4 hours.
+
+### Books
+
+| Method | Path | Access | Description |
+|---|---|---|---|
+| `GET` | `/books` | Public | Paginated list with search |
+| `GET` | `/books/:id` | Public | Get single book |
+| `POST` | `/books` | Admin | Create book |
+| `PATCH` | `/books/:id` | Admin | Update book |
+| `DELETE` | `/books/:id` | Admin | Delete book |
+
+### Users
+
+| Method | Path | Access | Description |
+|---|---|---|---|
+| `GET` | `/users` | Admin | Paginated list with search |
+| `GET` | `/users/:id` | Admin | Get single user |
+| `POST` | `/users` | Admin | Create user |
+| `PATCH` | `/users/:id` | Admin | Update user |
+| `DELETE` | `/users/:id` | Admin | Delete user |
+
+### Health
+
+| Method | Path | Access | Description |
+|---|---|---|---|
+| `GET` | `/health` | Public | Health check |
+
+---
+
+## Pagination & Search
+
+All list endpoints support:
+
+| Parameter | Default | Description |
+|---|---|---|
+| `page` | `1` | Page number (min: 1) |
+| `limit` | `10` | Items per page (min: 1) |
+| `search` | — | Case-insensitive search |
+
+**Response shape:**
+```json
+{
+  "data": [...],
+  "total": 42,
+  "page": 1,
+  "limit": 10
+}
+```
+
+---
+
+## Error Response Shape
+
+All errors follow a consistent structure:
+
+```json
+{
+  "success": false,
+  "statusCode": 404,
+  "path": "/books/unknown-id",
+  "timestamp": "2026-06-25T10:00:00.000Z",
+  "message": "Record not found"
+}
+```
+
+---
+
+## Project Structure
+
+```
+src/
+├── common/
+│   ├── decorators/       # @Public(), @Roles()
+│   ├── filters/          # Global exception filter
+│   └── guards/           # JwtAuthGuard, RolesGuard
+├── database/
+│   └── prisma/           # PrismaService, PrismaModule
+├── modules/
+│   ├── auth/             # JWT auth, signup/login/refresh
+│   ├── books/            # Books CRUD
+│   └── users/            # Users CRUD (admin)
+├── app.module.ts
+└── main.ts
+```
+
+---
+
+## Security
+
+- **Helmet** — sets secure HTTP response headers
+- **Rate limiting** — prevents brute-force on auth endpoints
+- **JWT** — stateless authentication with short-lived access tokens
+- **bcrypt** — password hashing with salt rounds = 10
+- **RBAC** — enforced at the guard level on every request
+- **Input validation** — `class-validator` with whitelist mode (unknown fields rejected)
+- **CORS** — configurable via `CORS_ORIGINS` env variable

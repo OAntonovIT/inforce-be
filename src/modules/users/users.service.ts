@@ -15,34 +15,20 @@ export class UsersService {
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
     return this.prisma.user.create({
-      data: {
-        ...dto,
-        password: hashedPassword,
-      },
+      data: { ...dto, password: hashedPassword },
       select: userSafeSelect,
     });
   }
 
   async findAll(query: UsersQueryDto) {
     const { page = 1, limit = 10, search } = query;
-
     const skip = (page - 1) * limit;
 
     const where: Prisma.UserWhereInput = search
       ? {
           OR: [
-            {
-              name: {
-                contains: search,
-                mode: 'insensitive',
-              },
-            },
-            {
-              email: {
-                contains: search,
-                mode: 'insensitive',
-              },
-            },
+            { name: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
           ],
         }
       : {};
@@ -58,12 +44,7 @@ export class UsersService {
       this.prisma.user.count({ where }),
     ]);
 
-    return {
-      data: users,
-      total,
-      page,
-      limit,
-    };
+    return { data: users, total, page, limit };
   }
 
   async findOne(id: string) {
@@ -74,22 +55,24 @@ export class UsersService {
   }
 
   async update(id: string, dto: UpdateUserDto) {
+    const data: Prisma.UserUpdateInput = { ...dto };
+
+    if (dto.password) {
+      data.password = await bcrypt.hash(dto.password, 10);
+    }
+
     return this.prisma.user.update({
       where: { id },
-      data: dto,
+      data,
       select: userSafeSelect,
     });
   }
 
   async remove(id: string) {
-    return this.prisma.user.delete({
-      where: { id },
-    });
+    return this.prisma.user.delete({ where: { id } });
   }
 
   async findByEmail(email: string) {
-    return this.prisma.user.findUnique({
-      where: { email },
-    });
+    return this.prisma.user.findUnique({ where: { email } });
   }
 }
